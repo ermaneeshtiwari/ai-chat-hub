@@ -70,12 +70,12 @@ async function loadProviderConfig() {
     option.textContent = provider.available
       ? provider.label
       : `${provider.label} (unavailable)`;
-    option.disabled = !provider.available;
     providerSelect.appendChild(option);
   }
 
-  providerSelect.value = providerConfig.defaultProvider;
-  applyProviderSelection(providerConfig.defaultProvider);
+  providerSelect.value =
+    providerConfig.defaultProvider || providerConfig.providers[0]?.name || "";
+  applyProviderSelection(providerSelect.value);
 }
 
 function appendMessageWithElement(role, text) {

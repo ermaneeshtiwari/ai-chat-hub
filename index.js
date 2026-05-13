@@ -82,90 +82,94 @@ function normalizeProviderError(providerName, error) {
 }
 
 function buildProviderConfig() {
-  const providers = {};
+  const openAiModels = parseModelList(process.env.OPENAI_MODELS, [
+    "gpt-4.1-mini",
+    "gpt-4o-mini",
+    "gpt-4o",
+  ]);
+  const groqModels = parseModelList(process.env.GROQ_MODELS, [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+  ]);
+  const openRouterModels = parseModelList(process.env.OPENROUTER_MODELS, [
+    "openai/gpt-4o-mini",
+    "anthropic/claude-3.5-sonnet",
+    "google/gemini-2.0-flash-001",
+  ]);
+  const geminiModels = parseModelList(process.env.GEMINI_MODELS, [
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
+  ]);
 
-  if (process.env.OPENAI_API_KEY) {
-    providers.openai = {
+  const providers = {
+    openai: {
       type: "openai-compatible",
       label: "OpenAI",
-      available: true,
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      available: Boolean(process.env.OPENAI_API_KEY),
+      reason: process.env.OPENAI_API_KEY ? null : "OPENAI_API_KEY is not configured.",
       defaultModel: process.env.OPENAI_DEFAULT_MODEL || "gpt-4.1-mini",
-      models: parseModelList(process.env.OPENAI_MODELS, [
-        "gpt-4.1-mini",
-        "gpt-4o-mini",
-        "gpt-4o",
-      ]),
-    };
+      models: openAiModels,
+    },
+    groq: {
+      type: "openai-compatible",
+      label: "Groq",
+      available: Boolean(process.env.GROQ_API_KEY),
+      reason: process.env.GROQ_API_KEY ? null : "GROQ_API_KEY is not configured.",
+      defaultModel:
+        process.env.GROQ_DEFAULT_MODEL || "llama-3.1-8b-instant",
+      models: groqModels,
+    },
+    openrouter: {
+      type: "openai-compatible",
+      label: "OpenRouter",
+      available: Boolean(process.env.OPENROUTER_API_KEY),
+      reason: process.env.OPENROUTER_API_KEY
+        ? null
+        : "OPENROUTER_API_KEY is not configured.",
+      defaultModel:
+        process.env.OPENROUTER_DEFAULT_MODEL || "openai/gpt-4o-mini",
+      models: openRouterModels,
+    },
+    gemini: {
+      type: "gemini",
+      label: "Gemini",
+      available: Boolean(
+        process.env.GEMINI_API_KEY &&
+          isLikelyGeminiApiKey(process.env.GEMINI_API_KEY)
+      ),
+      reason: process.env.GEMINI_API_KEY
+        ? "Invalid GEMINI_API_KEY format in .env"
+        : "GEMINI_API_KEY is not configured.",
+      defaultModel:
+        process.env.GEMINI_DEFAULT_MODEL ||
+        process.env.GEMINI_MODEL ||
+        "gemini-2.0-flash",
+      models: geminiModels,
+    },
+  };
+
+  if (process.env.OPENAI_API_KEY) {
+    providers.openai.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
   if (process.env.GROQ_API_KEY) {
-    providers.groq = {
-      type: "openai-compatible",
-      label: "Groq",
-      available: true,
-      client: new OpenAI({
-        apiKey: process.env.GROQ_API_KEY,
-        baseURL: "https://api.groq.com/openai/v1",
-      }),
-      defaultModel:
-        process.env.GROQ_DEFAULT_MODEL || "llama-3.1-8b-instant",
-      models: parseModelList(process.env.GROQ_MODELS, [
-        "llama-3.1-8b-instant",
-        "llama-3.3-70b-versatile",
-      ]),
-    };
+    providers.groq.client = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
   }
 
   if (process.env.OPENROUTER_API_KEY) {
-    providers.openrouter = {
-      type: "openai-compatible",
-      label: "OpenRouter",
-      available: true,
-      client: new OpenAI({
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: "https://openrouter.ai/api/v1",
-      }),
-      defaultModel:
-        process.env.OPENROUTER_DEFAULT_MODEL || "openai/gpt-4o-mini",
-      models: parseModelList(process.env.OPENROUTER_MODELS, [
-        "openai/gpt-4o-mini",
-        "anthropic/claude-3.5-sonnet",
-        "google/gemini-2.0-flash-001",
-      ]),
-    };
+    providers.openrouter.client = new OpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: "https://openrouter.ai/api/v1",
+    });
   }
 
-  if (process.env.GEMINI_API_KEY && isLikelyGeminiApiKey(process.env.GEMINI_API_KEY)) {
-    providers.gemini = {
-      type: "gemini",
-      label: "Gemini",
-      available: true,
-      apiKey: process.env.GEMINI_API_KEY,
-      defaultModel:
-        process.env.GEMINI_DEFAULT_MODEL ||
-        process.env.GEMINI_MODEL ||
-        "gemini-2.0-flash",
-      models: parseModelList(process.env.GEMINI_MODELS, [
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-      ]),
-    };
+  if (providers.gemini.available) {
+    providers.gemini.apiKey = process.env.GEMINI_API_KEY;
+    providers.gemini.reason = null;
   } else if (process.env.GEMINI_API_KEY) {
-    providers.gemini = {
-      type: "gemini",
-      label: "Gemini",
-      available: false,
-      reason: "Invalid GEMINI_API_KEY format in .env",
-      defaultModel:
-        process.env.GEMINI_DEFAULT_MODEL ||
-        process.env.GEMINI_MODEL ||
-        "gemini-2.0-flash",
-      models: parseModelList(process.env.GEMINI_MODELS, [
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-      ]),
-    };
     console.warn("Gemini provider is unavailable because GEMINI_API_KEY format is invalid.");
   }
 
@@ -239,7 +243,7 @@ function getProviderResponse() {
       defaultModel: providers[name].defaultModel,
       models: providers[name].models,
     })),
-    defaultProvider: availableProviderNames[0],
+    defaultProvider: availableProviderNames[0] || providerNames[0],
   };
 }
 
