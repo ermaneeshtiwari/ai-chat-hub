@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
+import path from "path";
 import { fileURLToPath } from "url";
 
 dotenv.config();
@@ -12,9 +13,10 @@ const maxHistoryMessages = Number(process.env.MAX_HISTORY_MESSAGES || 12);
 const basicAuthUser = process.env.BASIC_AUTH_USER;
 const basicAuthPass = process.env.BASIC_AUTH_PASS;
 const sessionHistory = new Map();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const isVercelRuntime = Boolean(process.env.VERCEL);
-const isDirectRun =
-  !isVercelRuntime && process.argv[1] === fileURLToPath(import.meta.url);
+const isDirectRun = !isVercelRuntime && process.argv[1] === __filename;
 
 function parseModelList(value, fallback) {
   const parsed = value
@@ -211,7 +213,11 @@ if (basicAuthUser && basicAuthPass) {
 }
 
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  return res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
