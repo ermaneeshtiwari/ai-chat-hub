@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const maxHistoryMessages = Number(process.env.MAX_HISTORY_MESSAGES || 12);
 const basicAuthUser = process.env.BASIC_AUTH_USER;
 const basicAuthPass = process.env.BASIC_AUTH_PASS;
 const sessionHistory = new Map();
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
 
 function parseModelList(value, fallback) {
   const parsed = value
@@ -173,10 +175,15 @@ const availableProviderNames = providerNames.filter(
 );
 
 if (!availableProviderNames.length) {
-  console.error(
-    "Missing valid AI provider API keys. Configure OPENAI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY."
-  );
-  process.exit(1);
+  const missingProviderMessage =
+    "Missing valid AI provider API keys. Configure OPENAI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY.";
+
+  if (isDirectRun) {
+    console.error(missingProviderMessage);
+    process.exit(1);
+  }
+
+  console.warn(missingProviderMessage);
 }
 
 if (basicAuthUser && basicAuthPass) {
@@ -460,6 +467,10 @@ app.post("/api/chat/stream", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Chatbot server running at http://localhost:${port}`);
-});
+if (isDirectRun) {
+  app.listen(port, () => {
+    console.log(`Chatbot server running at http://localhost:${port}`);
+  });
+}
+
+export default app;
