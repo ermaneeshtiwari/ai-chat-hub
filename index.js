@@ -12,7 +12,9 @@ const maxHistoryMessages = Number(process.env.MAX_HISTORY_MESSAGES || 12);
 const basicAuthUser = process.env.BASIC_AUTH_USER;
 const basicAuthPass = process.env.BASIC_AUTH_PASS;
 const sessionHistory = new Map();
-const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+const isVercelRuntime = Boolean(process.env.VERCEL);
+const isDirectRun =
+  !isVercelRuntime && process.argv[1] === fileURLToPath(import.meta.url);
 
 function parseModelList(value, fallback) {
   const parsed = value
