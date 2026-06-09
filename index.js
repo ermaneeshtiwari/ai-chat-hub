@@ -358,12 +358,14 @@ async function createTextResponse(providerName, model, input) {
     );
   }
 
-  const response = await provider.client.responses.create({
+  // Use the universal Chat Completions API so every OpenAI-compatible
+  // provider (OpenAI, Groq, OpenRouter) works with the same code path.
+  const response = await provider.client.chat.completions.create({
     model,
-    input,
+    messages: input,
   });
 
-  return response.output_text || "No response generated.";
+  return response.choices?.[0]?.message?.content || "No response generated.";
 }
 
 async function streamTextResponse(providerName, model, input, res) {
@@ -376,19 +378,23 @@ async function streamTextResponse(providerName, model, input, res) {
   }
 
   let assistantReply = "";
-  const stream = await provider.client.responses.stream({
+
+  // Chat Completions streaming: set stream:true and read each chunk's
+  // choices[0].delta.content. Supported by OpenAI, Groq, and OpenRouter.
+  const stream = await provider.client.chat.completions.create({
     model,
-    input,
+    messages: input,
+    stream: true,
   });
 
-  for await (const event of stream) {
-    if (event.type === "response.output_text.delta" && event.delta) {
-      assistantReply += event.delta;
-      res.write(event.delta);
+  for await (const chunk of stream) {
+    const delta = chunk.choices?.[0]?.delta?.content;
+    if (delta) {
+      assistantReply += delta;
+      res.write(delta);
     }
   }
 
-  await stream.finalResponse();
   return assistantReply || "No response generated.";
 }
 
