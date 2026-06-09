@@ -19,6 +19,16 @@ function getSessionId() {
   return sessionId;
 }
 
+// Convert the AI's Markdown reply into safe HTML and show it.
+// Falls back to plain text if the libraries did not load.
+function renderMarkdown(target, text) {
+  if (typeof marked !== "undefined" && typeof DOMPurify !== "undefined") {
+    target.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  } else {
+    target.textContent = text;
+  }
+}
+
 function appendMessage(role, text) {
   const wrapper = document.createElement("div");
   wrapper.className = `message ${role}`;
@@ -82,13 +92,15 @@ function appendMessageWithElement(role, text) {
   const wrapper = document.createElement("div");
   wrapper.className = `message ${role}`;
 
-  const paragraph = document.createElement("p");
-  paragraph.textContent = text;
-  wrapper.appendChild(paragraph);
+  // A <div> (not a <p>) so Markdown blocks like lists render correctly.
+  const content = document.createElement("div");
+  content.className = "message-content";
+  content.textContent = text;
+  wrapper.appendChild(content);
 
   chatMessages.appendChild(wrapper);
   chatMessages.scrollTop = chatMessages.scrollHeight;
-  return paragraph;
+  return content;
 }
 
 async function handleSubmit(event) {
@@ -127,7 +139,7 @@ async function handleSubmit(event) {
       throw new Error("No response body returned by server.");
     }
 
-    const botParagraph = appendMessageWithElement("bot", "");
+    const botContent = appendMessageWithElement("bot", "");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let streamedText = "";
@@ -138,12 +150,12 @@ async function handleSubmit(event) {
         break;
       }
       streamedText += decoder.decode(value, { stream: true });
-      botParagraph.textContent = streamedText;
+      renderMarkdown(botContent, streamedText);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     if (!streamedText.trim()) {
-      botParagraph.textContent = "I could not generate a reply.";
+      botContent.textContent = "I could not generate a reply.";
     }
   } catch (error) {
     appendMessage("bot", error.message || "Sorry, I hit an error. Please try again.");
